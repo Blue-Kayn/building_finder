@@ -321,9 +321,18 @@ class PalmJumeirahScraper
       data[:building_name] = extract_building_name(full_text)
       data[:full_title] = title
       
-      # Try to get address
-      location = doc.css('[data-section-id="LOCATION_DEFAULT"]').first&.text
-      data[:address] = location if location
+      # Clean up the address extraction
+      location_section = doc.css('[data-section-id="LOCATION_DEFAULT"]').first
+      if location_section
+        # Get only the location text, skip the "Where you'll be" heading
+        location_text = location_section.css('h2').first&.text || ""
+        # If that's empty, try to get the actual location from the section
+        if location_text.empty? || location_text.include?("Where you'll be")
+          # Look for the actual address in the section
+          location_text = location_section.text.gsub("Where you'll be", "").strip
+        end
+        data[:address] = location_text unless location_text.empty?
+      end
       
       # Close the Airbnb tab
       @driver.close
@@ -362,28 +371,30 @@ class PalmJumeirahScraper
   end
   
   def close_detail_panel
-    # Try clicking outside the modal multiple times to ensure it closes
-    3.times do
-      begin
-        # Click on the map area (right side of screen)
-        @driver.action.move_to_location(1400, 400).click.perform
-        sleep(1)
-      rescue
-      end
+    # Navigate back to the listings page using browser back button
+    begin
+      @driver.navigate.back
+      sleep(3)
+      puts "    Navigated back to listings"
+      return
+    rescue => e
+      puts "    Back navigation failed: #{e.message}"
     end
     
-    # Also try ESC key
+    # Alternative: Click the back arrow button
+    begin
+      back_btn = @driver.find_element(xpath: '//button[contains(@aria-label, "Back")]')
+      back_btn.click
+      sleep(2)
+      puts "    Clicked back button"
+      return
+    rescue
+    end
+    
+    # Try ESC key
     @driver.action.send_keys(:escape).perform
     sleep(2)
-    
-    # Verify the modal is actually closed by checking if listing cards are clickable again
-    begin
-      test_card = @driver.find_element(css: 'div[data-testid="listing-card"]')
-      test_card.displayed?
-      puts "    Modal closed successfully"
-    rescue
-      puts "    Warning: Modal might still be open"
-    end
+    puts "    Pressed ESC"
   end
   
   def export_to_csv
