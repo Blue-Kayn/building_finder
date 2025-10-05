@@ -1,0 +1,17 @@
+2025/10/06-00:04:40.707 7ddc Reusing MANIFEST C:\Users\USER\code\building_finder\chrome_scraper_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/10/06-00:04:40.713 7ddc Recovering log #12
+2025/10/06-00:04:40.714 7ddc Level-0 table #15: started
+2025/10/06-00:04:40.722 7ddc Level-0 table #15: 27307 bytes OK
+2025/10/06-00:04:40.729 7ddc Delete type=0 #12
+2025/10/06-00:05:40.752 36c0 Level-0 table #18: started
+2025/10/06-00:05:40.756 36c0 Level-0 table #18: 24170 bytes OK
+2025/10/06-00:05:40.758 36c0 Delete type=0 #16
+2025/10/06-00:05:40.758 7ddc Compacting 4@0 + 1@1 files
+2025/10/06-00:05:40.762 7ddc Generated table #19@0: 84 keys, 19740 bytes
+2025/10/06-00:05:40.762 7ddc Compacted 4@0 + 1@1 files => 19740 bytes
+2025/10/06-00:05:40.763 7ddc compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/10/06-00:05:40.764 7ddc Delete type=2 #8
+2025/10/06-00:05:40.764 7ddc Delete type=2 #10
+2025/10/06-00:05:40.764 7ddc Delete type=2 #13
+2025/10/06-00:05:40.764 7ddc Delete type=2 #15
+2025/10/06-00:05:40.764 7ddc Delete type=2 #18
