@@ -1,21 +1,3 @@
-2025/10/07-01:12:41.918 1600 Reusing MANIFEST C:\Users\USER\code\building_finder\airbnb_extractor_profile\Default\Local Storage\leveldb/MANIFEST-000001
-2025/10/07-01:12:41.924 1600 Recovering log #36
-2025/10/07-01:12:41.927 1600 Reusing old log C:\Users\USER\code\building_finder\airbnb_extractor_profile\Default\Local Storage\leveldb/000036.log 
-2025/10/07-01:17:42.944 8840 Level-0 table #40: started
-2025/10/07-01:17:42.947 8840 Level-0 table #40: 19247 bytes OK
-2025/10/07-01:17:42.949 8840 Delete type=0 #36
-2025/10/07-01:37:42.943 8840 Level-0 table #42: started
-2025/10/07-01:37:42.947 8840 Level-0 table #42: 12523 bytes OK
-2025/10/07-01:37:42.949 8840 Delete type=0 #39
-2025/10/07-02:10:42.945 8840 Level-0 table #44: started
-2025/10/07-02:10:42.948 8840 Level-0 table #44: 12063 bytes OK
-2025/10/07-02:10:42.949 8840 Delete type=0 #41
-2025/10/07-02:10:42.950 8840 Compacting 4@0 + 1@1 files
-2025/10/07-02:10:42.957 8840 Generated table #45@0: 787 keys, 179324 bytes
-2025/10/07-02:10:42.957 8840 Compacted 4@0 + 1@1 files => 179324 bytes
-2025/10/07-02:10:42.958 8840 compacted to: files[ 0 1 1 0 0 0 0 ]
-2025/10/07-02:10:42.958 8840 Delete type=2 #35
-2025/10/07-02:10:42.958 8840 Delete type=2 #37
-2025/10/07-02:10:42.959 8840 Delete type=2 #40
-2025/10/07-02:10:42.959 8840 Delete type=2 #42
-2025/10/07-02:10:42.959 8840 Delete type=2 #44
+2025/10/07-04:39:07.295 950c Reusing MANIFEST C:\Users\USER\code\building_finder\airbnb_extractor_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/10/07-04:39:07.301 950c Recovering log #48
+2025/10/07-04:39:07.304 950c Reusing old log C:\Users\USER\code\building_finder\airbnb_extractor_profile\Default\Local Storage\leveldb/000048.log 
