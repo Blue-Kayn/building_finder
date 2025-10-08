@@ -3,9 +3,10 @@ require 'selenium-webdriver'
 require 'nokogiri'
 require 'csv'
 require 'fileutils'
+require 'set'
 
 # Configuration
-INPUT_FILE = "THE FINAL PALM FILE 180+ - payload.listings.csv.csv"
+INPUT_FILE = "test_case.csv"
 OUTPUT_CSV = "palm_with_buildings.csv"
 BROKEN_LINKS_FILE = "broken_links.txt"
 VILLA_IDS_FILE = "villa_ids.txt"
@@ -40,11 +41,11 @@ driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () =>
 # Load helper functions
 require_relative 'building_helpers'
 
-# Create output CSV
+# Create output CSV with new Location column
 CSV.open(OUTPUT_CSV, 'w') do |csv|
   csv << ['AirBnB ID', 'Bedrooms', 'Bathrooms', 'Revenue', 'Occupancy Rate', 'ADR', 
-          'Days Available', 'Lat', 'Lng', 'Building Name', 'Unit Type', 'Distance (m)', 
-          'Confidence', 'Status']
+          'Days Available', 'Lat', 'Lng', 'Location', 'Building Name', 'Unit Type', 
+          'Distance (m)', 'Confidence', 'Status']
 end
 
 count = 0
@@ -72,7 +73,7 @@ CSV.foreach(INPUT_FILE, headers: true) do |row|
     puts "\n[#{count}] #{airbnb_id} - VILLA (cached, skipping)"
     CSV.open(OUTPUT_CSV, 'a') do |csv|
       csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
-              days_available, csv_lat, csv_lng, nil, 'Villa', nil, nil, 'cached_villa']
+              days_available, csv_lat, csv_lng, nil, nil, 'Villa', nil, nil, 'cached_villa']
     end
     villas_count += 1
     next
@@ -110,10 +111,16 @@ CSV.foreach(INPUT_FILE, headers: true) do |row|
     # Extract text
     title = doc.css('h1').first&.text&.strip || ""
     description = doc.css('[data-section-id="DESCRIPTION_DEFAULT"]').first&.text&.strip || ""
-    location = doc.css('div[data-section-id="LOCATION_DEFAULT"]').first&.text&.strip || ""
-    full_text = "#{title}\n#{description}\n#{location}"
+    location_text = doc.css('div[data-section-id="LOCATION_DEFAULT"]').first&.text&.strip || ""
+    full_text = "#{title}\n#{description}\n#{location_text}"
     
     puts "  Title: #{title[0..60]}"
+
+            # ADD THESE DEBUG LINES:
+        puts "  📝 Full text length: #{full_text.length} chars"
+        puts "  📝 Text contains 'FIVE': #{full_text.include?('FIVE')}"
+        puts "  📝 Text contains 'CLUB VISTA': #{full_text.include?('CLUB VISTA')}"
+        puts "  📝 Calling extract_building_from_text with location detection..."
     
     # Check if villa
     if is_villa?(doc, title)
@@ -123,47 +130,52 @@ CSV.foreach(INPUT_FILE, headers: true) do |row|
       
       CSV.open(OUTPUT_CSV, 'a') do |csv|
         csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
-                days_available, csv_lat, csv_lng, nil, 'Villa', nil, nil, 'villa']
+                days_available, csv_lat, csv_lng, nil, nil, 'Villa', nil, nil, 'villa']
       end
       villas_count += 1
     else
-      # Extract building name for apartments
-      building, confidence = extract_building_from_text(full_text)
+      # Extract building name for apartments (LOCATION-AWARE)
+      building, confidence = extract_building_from_text(full_text, csv_lat, csv_lng)
       
+      puts "  🏢 Extracted: #{building || 'NULL'} (confidence: #{confidence || 'N/A'})"
+
       if building
-        # Validate with coordinates
-        official_coords = get_building_coordinates(building)
+        # Validate with coordinates (LOCATION-AWARE)
+        validation = validate_building_extraction(csv_lat, csv_lng, building)
         
-        if official_coords
-          distance = calculate_distance(csv_lat, csv_lng, official_coords[0], official_coords[1])
-          puts "  📏 Distance from #{building}: #{distance.round}m"
-          
-          if distance > 500
-            puts "  ⚠️ Distance >500m - MANUAL CHECK"
-            status = 'manual_check'
-          else
-            puts "  ✓ #{building} (#{confidence}) - validated #{distance.round}m"
-            status = 'validated'
-          end
-          
-          CSV.open(OUTPUT_CSV, 'a') do |csv|
-            csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
-                    days_available, csv_lat, csv_lng, building, 'Apartment', 
-                    distance.round, confidence, status]
-          end
+        location_display = BuildingDatabase.location_display_name(validation[:location]) if validation[:location]
+        
+        case validation[:status]
+        when 'validated'
+          puts "  ✓ #{building} (#{confidence}) - validated #{validation[:distance]}m"
+          status = 'validated'
+        when 'manual_check'
+          puts "  ⚠️ Distance >200m - MANUAL CHECK (#{validation[:distance]}m)"
+          status = 'manual_check'
+        when 'wrong_location'
+          puts "  ⚠️ Building not found in detected location"
+          status = 'wrong_location'
+        when 'unknown_location'
+          puts "  ⚠️ Coordinates outside known areas"
+          status = 'unknown_location'
         else
-          puts "  ✓ #{building} (#{confidence}) - no coords to validate"
-          CSV.open(OUTPUT_CSV, 'a') do |csv|
-            csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
-                    days_available, csv_lat, csv_lng, building, 'Apartment', 
-                    nil, confidence, 'text_only']
-          end
+          puts "  ✓ #{building} (#{confidence}) - no validation"
+          status = 'text_only'
+        end
+        
+        CSV.open(OUTPUT_CSV, 'a') do |csv|
+          csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
+                  days_available, csv_lat, csv_lng, location_display, building, 'Apartment', 
+                  validation[:distance], confidence, status]
         end
       else
         puts "  ✗ No building name found"
+        location = BuildingDatabase.detect_location(csv_lat, csv_lng)
+        location_display = BuildingDatabase.location_display_name(location) if location
+        
         CSV.open(OUTPUT_CSV, 'a') do |csv|
           csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
-                  days_available, csv_lat, csv_lng, nil, 'Apartment', 
+                  days_available, csv_lat, csv_lng, location_display, nil, 'Apartment', 
                   nil, nil, 'not_found']
         end
       end
@@ -178,7 +190,7 @@ CSV.foreach(INPUT_FILE, headers: true) do |row|
     puts "  ERROR: #{e.message}"
     CSV.open(OUTPUT_CSV, 'a') do |csv|
       csv << [airbnb_id, bedrooms, bathrooms, revenue, occupancy_rate, adr, 
-              days_available, csv_lat, csv_lng, nil, nil, nil, nil, 'error']
+              days_available, csv_lat, csv_lng, nil, nil, nil, nil, nil, 'error']
     end
   end
 end
