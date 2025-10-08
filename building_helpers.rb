@@ -41,17 +41,6 @@ def extract_coordinates(driver)
   begin
     page_source = driver.page_source
     
-    # Debug: Check if we can find any latitude mention
-    if page_source.include?("latitude")
-      puts "    DEBUG: Found 'latitude' in page source"
-      # Extract a snippet around latitude
-      if page_source =~ /(.{0,50}latitude.{0,100})/
-        puts "    DEBUG: Context: #{$1[0..150]}"
-      end
-    else
-      puts "    DEBUG: 'latitude' NOT found in page source at all"
-    end
-    
     # Try multiple patterns
     patterns = [
       /"latitude":([\d.-]+),"longitude":([\d.-]+)/,
@@ -64,8 +53,6 @@ def extract_coordinates(driver)
       if page_source =~ pattern
         lat = $1.to_f
         lng = $2.to_f
-        
-        puts "    DEBUG: Pattern #{idx} matched!"
         
         # Sanity check - Dubai coordinates should be roughly 25.x, 55.x
         if lat > 24.5 && lat < 25.5 && lng > 54.5 && lng < 56.0
@@ -85,6 +72,7 @@ def extract_coordinates(driver)
   
   [nil, nil]
 end
+
 def calculate_distance(lat1, lon1, lat2, lon2)
   # Haversine formula to calculate distance between two points in meters
   return nil if lat1.nil? || lon1.nil? || lat2.nil? || lon2.nil?
@@ -147,7 +135,33 @@ def get_building_coordinates(building_name)
     'DUKES PALM' => [25.1258, 55.1230],
     'RIXOS' => [25.1225, 55.1235],
     'RIXOS PALM' => [25.1225, 55.1235],
-    'EMAAR BEACHFRONT' => [25.0842, 55.1535]
+    'EMAAR BEACHFRONT' => [25.0842, 55.1535],
+    'SEVEN PALM' => [25.1121932, 55.1386346],
+    'SEVEN HOTEL' => [25.1121932, 55.1386346],
+    'DREAM PALM' => [25.118, 55.133],
+    'DREAM' => [25.118, 55.133],
+    'ANANTARA' => [25.1275, 55.1535],
+    'AZIZI MINA' => [25.1269, 55.1535],
+    'MINA' => [25.1269, 55.1535],
+    'AZURE RESIDENCES' => [25.107, 55.152],
+    'AZURE' => [25.107, 55.152],
+    'TIARA RESIDENCES' => [25.115, 55.140],
+    'TIARA' => [25.115, 55.140],
+    'CLUB VISTA MARE' => [25.114, 55.137],
+    'VISTA MARE' => [25.114, 55.137],
+    'MARINA RESIDENCES' => [25.114, 55.138],
+    'AL HASEER' => [25.113, 55.143],
+    'HASEER' => [25.113, 55.143],
+    'AL NABAT' => [25.113, 55.142],
+    'AL HAMRI' => [25.108, 55.149],
+    'AL SULTANA' => [25.107, 55.150],
+    'JASH FALQA' => [25.108, 55.148],
+    'RUBY' => [25.117, 55.141],
+    'DIAMOND' => [25.098, 55.141],
+    'TANZANITE' => [25.115, 55.140],
+    'EMERALD' => [25.116, 55.141],
+    'ROYAL AMWAJ' => [25.128, 55.154],
+    'ROYAL BAY' => [25.125, 55.152]
   }
   
   building_coords[building_name.upcase]
@@ -247,18 +261,30 @@ def extract_building_from_text(text)
     /perfect\s+for\s+visiting\s+/i,
     /explore\s+/i,
     /visit\s+/i,
-    /iconic\s+/i
+    /iconic\s+/i,
+    /like\s+(?:a|an)\s+/i,  # "like an influencer's dream"
+    /(?:a|an|your)\s+.*?\s+dream/i  # "a dream vacation", "your dream"
   ]
   
   patterns = [
-    # ABSOLUTE HIGHEST PRIORITY - Explicit location statements with key buildings
-    {regex: /\b(?:FIVE\s+(?:AT\s+)?PALM\s+JUMEIRAH|FIVE\s+PALM)\s+is\s+/i, confidence: 'high', priority: 0},
-    {regex: /\bparties\s+at\s+(?:the\s+)?(FIVE)\b/i, confidence: 'high', priority: 0},
-    {regex: /\blocated\s+(?:in|at)\s+(?:the\s+)?(FIVE\s+(?:AT\s+)?PALM\s+JUMEIRAH|FIVE\s+PALM)\b/i, confidence: 'high', priority: 0},
+    # ABSOLUTE HIGHEST PRIORITY - Emaar Beachfront variations (including sub-towers)
+    {regex: /\b(?:in|at|within|nestled in)\s+(?:the\s+)?(?:vibrant\s+)?(EMAAR BEACHFRONT)\s+community/i, confidence: 'high', priority: 0},
+    {regex: /\b(MARINA VISTA)\s+TOWER\s+\d+/i, confidence: 'high', priority: 0},
+    {regex: /\b(SUNRISE BAY)\s+TOWER\s+\d+/i, confidence: 'high', priority: 0},
+    {regex: /\b(BEACH ISLE|BEACH VISTA|GRAND BLEU|PALACE BEACH)\s+TOWER\s+\d+/i, confidence: 'high', priority: 0},
     
-    # HIGHEST priority - "Located in/at" with exact building names
+    # ABSOLUTE HIGHEST PRIORITY - Explicit "located at/in" with "residences of" or "hotel"
+    # These are the STRONGEST signals - someone saying where they are located
+    {regex: /\b(?:located|situated|residing|based)\s+(?:at|in|within)\s+(?:the\s+)?(?:residences\s+of\s+(?:the\s+)?)?(?:luxurious\s+)?(RIXOS)\s+(?:PALM\s+)?(?:HOTEL|RESIDENCES?)\b/i, confidence: 'high', priority: 0},
+    {regex: /\b(TIARA RESIDENCES?)\s+offers?\s+occupants/i, confidence: 'high', priority: 0},
+    {regex: /\b(?:located|situated|residing|based)\s+(?:at|in|within)\s+(?:the\s+)?(#{known_buildings.select{|b| b.length > 6}.map{|b| Regexp.escape(b)}.join('|')})\b/i, confidence: 'high', priority: 0},
+    
+    # VERY HIGH PRIORITY - Specific Emaar Beachfront sub-buildings with "located" phrase
+    {regex: /\b(?:located|situated)\s+(?:at|in)\s+(?:the\s+)?(SUNRISE BAY|MARINA VISTA|BEACH ISLE|BEACH VISTA|GRAND BLEU|PALACE BEACH)/i, confidence: 'high', priority: 0},
+    
+    # HIGH priority - "Located in/at" with exact building names (original pattern but lower priority than above)
     *known_buildings.map { |b| 
-      {regex: /\b(?:located|situated|based|residing|apartment|unit|flat|penthouse|studio)\s+(?:in|at|within)\s+(?:the\s+)?(#{Regexp.escape(b)})\b/i, confidence: 'high', priority: 1}
+      {regex: /\b(?:apartment|unit|flat|penthouse|studio)\s+(?:in|at|within)\s+(?:the\s+)?(#{Regexp.escape(b)})\b/i, confidence: 'high', priority: 1}
     },
     
     # VERY HIGH priority - Building name is a complete sentence or at end
@@ -279,29 +305,36 @@ def extract_building_from_text(text)
     {regex: /\b(?:in|at)\s+(SEVEN HOTEL.*PALM[-\s][AB])\b/i, confidence: 'high', priority: 1},
     {regex: /\b(?:in|at)\s+(MARINA APARTMENTS\s+\d)\b/i, confidence: 'high', priority: 1},
     
-    # MEDIUM confidence - Exact building name matches WITHOUT exclusion context
-    *known_buildings.map { |b| 
+    # Frond villas
+    {regex: /\b(FROND\s+[A-Z]\s+VILLA)\b/i, confidence: 'high', priority: 2},
+    
+    # LOWER PRIORITY - Casual mentions (might just be in title for marketing)
+    # Buildings commonly mentioned for views should be deprioritized
+    {regex: /\b(ATLANTIS THE PALM|ATLANTIS)\b/i, confidence: 'low', priority: 5},
+    {regex: /\b(ROYAL ATLANTIS)\b/i, confidence: 'low', priority: 5},
+    {regex: /\b(DREAM PALM|DREAM)\b/i, confidence: 'low', priority: 5},
+    
+    # MEDIUM confidence - Other exact building name matches WITHOUT exclusion context
+    *known_buildings.reject{|b| b.match?(/ATLANTIS|DREAM/)}.map { |b| 
       {regex: /\b(#{Regexp.escape(b)})\b/i, confidence: 'medium', priority: 3}
     },
     
-    # MEDIUM confidence - Numbered variations standalone
+    # MEDIUM confidence - Numbered variations standalone (but NOT generic Tower 1/2/3)
     {regex: /\b(GOLDEN MILE\s+\d{1,2})\b/i, confidence: 'medium', priority: 3},
     {regex: /\b(BALQIS RESIDENCE\s+\d)\b/i, confidence: 'medium', priority: 3},
     {regex: /\b(PALM BEACH TOWERS?[-\s]\d)\b/i, confidence: 'medium', priority: 3},
-    {regex: /\b(SERENIA (?:RESIDENCES|LIVING)\s+(?:BUILDING\s+)?[A-D]|TOWER\s+\d)\b/i, confidence: 'medium', priority: 3},
+    {regex: /\b(SERENIA (?:RESIDENCES|LIVING)\s+(?:BUILDING\s+)?[A-D])\b/i, confidence: 'medium', priority: 3},
     {regex: /\b(GRANDUER RESIDENCES[-\s](?:MAURYA|MUGHAL))\b/i, confidence: 'medium', priority: 3},
     {regex: /\b(THE RESIDENCES\s+(?:NORTH|SOUTH))\b/i, confidence: 'medium', priority: 3},
     {regex: /\b(ROYAL AMWAJ RESIDENCES\s+(?:NORTH|SOUTH))\b/i, confidence: 'medium', priority: 3},
     {regex: /\b(AL\s+[A-Z]+[-\s]B\d{1,2})\b/i, confidence: 'medium', priority: 3},
     # Only match specific building codes, not generic "Tower X"
     {regex: /\b([BFSV][-]\d{2})\b/, confidence: 'medium', priority: 3},
+    # REMOVED: Generic Tower 1/2/3 patterns - these are not real buildings
     
-    # Frond villas
-    {regex: /\b(FROND\s+[A-Z]\s+VILLA)\b/i, confidence: 'high', priority: 2},
-    
-    # Generic context-based patterns (lower priority)
-    {regex: /(?:located in|situated in|in the|at)\s+([A-Z][A-Za-z\s&]+(?:RESIDENCES?|TOWER|APARTMENTS?))/i, confidence: 'medium', priority: 4},
-    {regex: /([A-Z][A-Za-z\s&]+(?:RESIDENCES?|TOWER|APARTMENTS?))\s+[-–]\s+PALM\s+JUMEIRAH/i, confidence: 'medium', priority: 4},
+    # Generic context-based patterns (LOWEST priority - often false positives)
+    {regex: /(?:located in|situated in|in the|at)\s+([A-Z][A-Za-z\s&]+(?:RESIDENCES?|TOWER|APARTMENTS?))/i, confidence: 'low', priority: 6},
+    {regex: /([A-Z][A-Za-z\s&]+(?:RESIDENCES?|TOWER|APARTMENTS?))\s+[-–]\s+PALM\s+JUMEIRAH/i, confidence: 'low', priority: 6},
   ]
   
   # Sort by priority (lower number = higher priority)
@@ -349,6 +382,11 @@ def extract_building_from_text(text)
       best_match = 'BALQIS RESIDENCES'
     end
     
+    # Rixos variations
+    if best_match.match?(/RIXOS/i)
+      best_match = 'RIXOS PALM'
+    end
+    
     # Normalize all Emaar Beachfront buildings to EMAAR BEACHFRONT
     emaar_beachfront_buildings = [
       /MARINA VISTA/i,
@@ -363,6 +401,41 @@ def extract_building_from_text(text)
     emaar_beachfront_buildings.each do |pattern|
       if best_match.match?(pattern)
         best_match = 'EMAAR BEACHFRONT'
+        break
+      end
+    end
+    
+    # Normalize all Shoreline Apartments frond villas to SHORELINE APARTMENTS
+    shoreline_fronds = [
+      /ABU KEIBAL/i,
+      /AL ANBARA/i,
+      /AL BASRI/i,
+      /AL BASHRI/i,
+      /AL DABAS/i,
+      /AL DAS/i,
+      /AL HABOOL/i,
+      /AL HALLAWI/i,
+      /AL HAMRI/i,
+      /AL HASEER/i,
+      /HASEER/i,
+      /AL HATIMI/i,
+      /AL KHUDRAWI/i,
+      /AL KHUSHKAR/i,
+      /AL MSALLI/i,
+      /AL NABAT/i,
+      /AL SARROOD/i,
+      /AL SHAHLA/i,
+      /AL SULTANA/i,
+      /SULTANA/i,
+      /AL TAMR/i,
+      /TAMR/i,
+      /JASH FALQA/i,
+      /JASH HAMAD/i
+    ]
+    
+    shoreline_fronds.each do |pattern|
+      if best_match.match?(pattern)
+        best_match = 'SHORELINE APARTMENTS'
         break
       end
     end
